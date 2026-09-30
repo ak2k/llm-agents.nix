@@ -13,19 +13,21 @@
   versionCheckHomeHook,
 }:
 
-# build.rs shells out to `zig build` to compile vendored libghostty-vt.
+# crates/ghostty-vt/build.rs shells out to `zig build` to compile vendored
+# libghostty-vt.  It passes an explicit -Dtarget, so zig builds for the
+# platform's baseline CPU rather than the build host's.
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "herdr";
-  version = "0.9.1";
+  version = "0.9.3";
 
   src = fetchFromGitHub {
     owner = "herdrdev";
     repo = "herdr";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-N6+kprfWRyh0AkAiopkGsNXUGGORyPVFHEaDHCpGQs8=";
+    hash = "sha256-uu452Xe23pSvFk7w7fKPjiaqY5QenUIljao2SFAxpc0=";
   };
 
-  cargoHash = "sha256-1VAmsDE3zeU0wMVQKleQcd/zq8/k/oor8tasrsRQfeY=";
+  cargoHash = "sha256-+gTWtEheyuI59yf2PqRbcbcFIW+/cYb7zZ2mPv2VN0Y=";
 
   # Pre-fetched Zig package cache for the vendored libghostty-vt, so zig can
   # build offline.  fetchDeps is a fixed-output derivation, so this does not
@@ -57,19 +59,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
   dontUseZigCheck = true;
   dontUseZigConfigure = true;
 
-  # build.rs passes an explicit -Dtarget that zig treats as a cross target,
-  # so build-time helper executables (uucode_build_tables) get linked against
-  # the FHS dynamic loader path which doesn't exist in the sandbox.  Drop the
-  # flag so zig uses the native target and picks up the wrapped libc paths,
-  # but keep Zig's CPU baseline explicit to avoid build-host CPU features
-  # leaking into the output.
-  postPatch = ''
-    substituteInPlace build.rs \
-      --replace-fail '.arg("build")' '.arg("build")
-          .arg("-Dcpu=baseline")' \
-      --replace-fail '.arg(format!("-Dtarget={zig_target}"))' ""
-  ''
-  + lib.optionalString stdenv.hostPlatform.isLinux ''
+  postPatch = lib.optionalString stdenv.hostPlatform.isLinux ''
     substituteInPlace src/platform/linux.rs \
       --replace-fail 'let mut cmd = command("notify-send");' \
         'let mut cmd = command("${libnotify}/bin/notify-send");'
